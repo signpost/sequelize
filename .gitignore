@@ -2,10 +2,15 @@ test*.js
 *.swp
 .idea
 .DS_STORE
-node_modules
 npm-debug.log
 *~
 test/binary/tmp/*
 test/tmp/*
 test/sqlite/test.sqlite
 coverage-*
+
+# ignore dependency binaries
+/node_modules/mariasql/build/
+/node_modules/pg/build/
+/node_modules/sqlite3/lib/binding/
+
