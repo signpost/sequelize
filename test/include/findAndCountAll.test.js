@@ -5,6 +5,7 @@ var chai      = require('chai')
   , Support   = require(__dirname + '/../support')
   , DataTypes = require(__dirname + "/../../lib/data-types")
   , datetime  = require('chai-datetime')
+  , Sequelize = require('../..')
 
 chai.use(datetime)
 chai.config.includeStack = true
@@ -957,6 +958,73 @@ describe(Support.getTestDialectTeaser("Include"), function () {
 
     describe('hasMany exclude where', function() {
 
+      it('should be possible to combine boolean where and hasMany exclude where', function (done) {
+
+        var Product = this.sequelize.define('Product', {
+              title: DataTypes.STRING
+            })
+            , Price = this.sequelize.define('Price', {
+                value: DataTypes.FLOAT
+              });
+
+        Product.hasMany(Price);
+        Price.belongsTo(Product);
+
+        var setUp = function(callback) {
+          Product.bulkCreate([
+            {title: 'Widgets A'},
+            {title: 'Widgets B'},
+            {title: 'Sprockets A'},
+            {title: 'Sprockets B'},
+          ]).success(function() {
+            Product.findAll().success(function(products) {
+              Price.bulkCreate([
+                {ProductId: products[0].id, value: 1},
+                {ProductId: products[0].id, value: 1.5},
+                {ProductId: products[1].id, value: 1},
+                {ProductId: products[1].id, value: 1.5},
+                {ProductId: products[2].id, value: 2},
+                {ProductId: products[2].id, value: 2.5},
+                {ProductId: products[3].id, value: 2},
+                {ProductId: products[3].id, value: 2.5}
+              ]).success(function() {
+                callback();
+              });
+            });
+          });
+        };
+
+        this.sequelize.sync({force: true}).success(function() {
+          setUp(function() {
+            Product.findAndCountAll({
+              distinct: true,
+              where: Sequelize.and([{
+                title: {
+                  like: '%B'
+                }
+              }]),
+              exclude: [
+                {model: Price, where: {
+                  value: {
+                    lt: 2
+                  }
+                }}
+              ],
+              limit: 1
+            // }).on('sql', function(sql) {
+            //   console.log(sql);
+            }).success(function (results) {
+              expect(results.count).to.equal(1);
+              expect(results.rows.length).to.equal(1);
+              var product = results.rows[0];
+              expect(product.title).to.equal('Sprockets B');
+              expect(product.prices).to.equal(undefined);
+              done();
+            });
+          });
+        });
+      });
+
       it('should be possible to limit a hasMany exclude with a where', function (done) {
 
         var Product = this.sequelize.define('Product', {
@@ -1077,6 +1145,69 @@ describe(Support.getTestDialectTeaser("Include"), function () {
 
     describe('hasOne exclude where', function() {
 
+      it('should be possible to combine boolean where and hasOne exclude where', function (done) {
+
+        var Product = this.sequelize.define('Product', {
+              title: DataTypes.STRING
+            })
+            , Price = this.sequelize.define('Price', {
+                value: DataTypes.FLOAT
+              });
+
+        Product.hasOne(Price);
+        Price.belongsTo(Product);
+
+        var setUp = function(callback) {
+          Product.bulkCreate([
+            {title: 'Widgets A'},
+            {title: 'Widgets B'},
+            {title: 'Sprockets A'},
+            {title: 'Sprockets B'}
+          ]).success(function() {
+            Product.findAll().success(function(products) {
+              Price.bulkCreate([
+                {ProductId: products[0].id, value: 1},
+                {ProductId: products[1].id, value: 1},
+                {ProductId: products[2].id, value: 2},
+                {ProductId: products[3].id, value: 2}
+              ]).success(function() {
+                callback();
+              });
+            });
+          });
+        };
+
+        this.sequelize.sync({force: true}).success(function() {
+          setUp(function() {
+            Product.findAndCountAll({
+              distinct: true,
+              where: Sequelize.and([{
+                title: {
+                  like: '%B'
+                }
+              }]),
+              exclude: [
+                {model: Price, where: {
+                  value: {
+                    eq: 1
+                  }
+                }}
+              ],
+              limit: 1
+            // }).on('sql', function(sql) {
+            //   console.log(sql);
+            }).success(function (results) {
+              expect(results.count).to.equal(1);
+              expect(results.rows.length).to.equal(1);
+              var product = results.rows[0];
+              expect(product.title).to.equal('Sprockets B');
+              expect(product.prices).to.equal(undefined);
+              done();
+            });
+          });
+        });
+      });
+
       it('should be possible to limit a hasOne exclude with a where', function (done) {
 
         var Product = this.sequelize.define('Product', {
@@ -1192,6 +1323,66 @@ describe(Support.getTestDialectTeaser("Include"), function () {
 
     describe('belongsTo exclude where', function() {
 
+      it('should be possible to combine boolean where with belongsTo where', function (done) {
+
+        var Product = this.sequelize.define('Product', {
+              title: DataTypes.STRING
+            })
+            , Price = this.sequelize.define('Price', {
+                value: DataTypes.FLOAT
+              });
+
+        Product.hasOne(Price);
+        Price.belongsTo(Product);
+
+        var setUp = function(callback) {
+          Product.bulkCreate([
+            {title: 'Widgets'},
+            {title: 'Sprockets'}
+          ]).success(function() {
+            Product.findAll().success(function(products) {
+              Price.bulkCreate([
+                {ProductId: products[0].id, value: 1},
+                {ProductId: products[0].id, value: 1.1},
+                {ProductId: products[1].id, value: 2},
+                {ProductId: products[1].id, value: 2.1}
+              ]).success(function() {
+                callback();
+              });
+            });
+          });
+        };
+
+        this.sequelize.sync({force: true}).success(function() {
+          setUp(function() {
+            Price.findAndCountAll({
+              distinct: true,
+              where: Sequelize.and([{
+                value: {
+                  lte: 2
+                }
+              }]),
+              exclude: [
+                {model: Product, where: {
+                  title: {
+                    eq: 'Widgets'
+                  }
+                }}
+              ],
+              limit: 1
+            // }).on('sql', function(sql) {
+            //   console.log(sql);
+            }).success(function (results) {
+              expect(results.count).to.equal(1);
+              expect(results.rows.length).to.equal(1);
+              expect(results.rows[0].value).to.equal(2);
+              expect(results.rows[0].product).to.equal(undefined);
+              done();
+            });
+          });
+        });
+      });
+
       it('should be possible to limit a belongsTo exclude with a where', function (done) {
 
         var Product = this.sequelize.define('Product', {
@@ -1304,6 +1495,90 @@ describe(Support.getTestDialectTeaser("Include"), function () {
     }); //end belongsTo exclude where
 
     describe('hasMany through exclude where', function() {
+
+      it('should be possible to combine boolean where and hasMany through exclude where', function (done) {
+
+        var Product = this.sequelize.define('Product', {
+              title: DataTypes.STRING
+            })
+            , Price = this.sequelize.define('Price', {
+                value: DataTypes.FLOAT
+              })
+            , ProductsPrices = this.sequelize.define('ProductsPrices', {});
+
+        Product.hasMany(Price, {through: ProductsPrices});
+        Price.hasMany(Product, {through: ProductsPrices});
+
+        var setUp = function(callback) {
+          Product.bulkCreate([
+            {title: 'Widgets A'},
+            {title: 'Widgets B'},
+            {title: 'Sprockets A'},
+            {title: 'Sprockets B'},
+            {title: 'Thingies A'},
+            {title: 'Thingies B'}
+          ]).success(function() {
+            Product.findAll().success(function(products) {
+              Price.bulkCreate([
+                {value: 1},
+                {value: 1.1},
+                {value: 2},
+                {value: 2.1},
+                {value: 2.2}
+              ]).success(function() {
+                Price.findAll().success(function(prices) {
+                  ProductsPrices.bulkCreate([
+                    {ProductId: products[0].id, PriceId: prices[0].id},
+                    {ProductId: products[0].id, PriceId: prices[1].id},
+                    {ProductId: products[1].id, PriceId: prices[0].id},
+                    {ProductId: products[1].id, PriceId: prices[1].id},
+                    {ProductId: products[2].id, PriceId: prices[2].id},
+                    {ProductId: products[2].id, PriceId: prices[3].id},
+                    {ProductId: products[3].id, PriceId: prices[2].id},
+                    {ProductId: products[3].id, PriceId: prices[3].id},
+                    {ProductId: products[4].id, PriceId: prices[3].id},
+                    {ProductId: products[4].id, PriceId: prices[4].id},
+                    {ProductId: products[5].id, PriceId: prices[3].id},
+                    {ProductId: products[5].id, PriceId: prices[4].id},
+                  ]).success(function() {
+                    callback();
+                  });
+                })
+              });
+            });
+          });
+        };
+
+        this.sequelize.sync({force: true}).success(function() {
+          setUp(function() {
+            Product.findAndCountAll({
+              distinct: true,
+              where: Sequelize.and([{
+                title: {
+                  like: '%B'
+                }
+              }]),
+              exclude: [
+                {model: Price, where: {
+                  value: {
+                    lt: 2
+                  }
+                }}
+              ],
+              limit: 1
+            // }).on('sql', function(sql) {
+            //   console.log(sql);
+            }).success(function (results) {
+              expect(results.count).to.equal(2);
+              expect(results.rows.length).to.equal(1);
+              var product = results.rows[0];
+              expect(product.title).to.equal('Sprockets B');
+              expect(product.prices).to.equal(undefined);
+              done();
+            });
+          });
+        });
+      });
 
       it('should be possible to limit a hasMany through exclude with a where', function (done) {
 
