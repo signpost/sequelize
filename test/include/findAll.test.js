@@ -639,6 +639,29 @@ describe(Support.getTestDialectTeaser("Include"), function () {
       })
     })
 
+    it('should not duplicate primary key attributes with limit and include attributes', function (done) {
+      var self = this
+      this.fixtureA(function () {
+        self.models.Price.findAll({
+          where: {
+            id: 1
+          },
+          include: [
+            {
+              model: self.models.Product,
+              attributes: ['id', 'title'],
+              where: { title: 'Chair' }
+            }
+          ],
+          limit: 1
+        }).done(function (err, prices) {
+          expect(err).not.to.be.ok
+          expect(prices.length).to.equal(1)
+          done()
+        })
+      })
+    })
+
     it('should include attributes from through models', function (done) {
       var Product = this.sequelize.define('Product', {
             title: DataTypes.STRING
