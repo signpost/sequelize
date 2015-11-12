@@ -351,15 +351,21 @@ describe(Support.getTestDialectTeaser("DAOFactory"), function () {
         var self         = this
         self.Task        = self.sequelize.define('Task', { title: Sequelize.STRING })
         self.Worker      = self.sequelize.define('Worker', { name: Sequelize.STRING })
+        this.SubTask     = self.sequelize.define('SubTask', { item: Sequelize.STRING })
 
         this.init = function(callback) {
           self.Task.sync({ force: true }).success(function() {
             self.Worker.sync({ force: true }).success(function() {
-              self.Worker.create({ name: 'worker' }).success(function(worker) {
-                self.Task.create({ title: 'homework' }).success(function(task) {
-                  self.worker    = worker
-                  self.task      = task
-                  callback()
+              self.SubTask.sync({ force: true }).success(function() {
+                self.Worker.create({ name: 'worker' }).success(function(worker) {
+                  self.Task.create({ title: 'homework' }).success(function(task) {
+                    self.SubTask.create({ item: 'social studies' }).success(function(subTask) {
+                      self.worker    = worker
+                      self.task      = task
+                      self.subTask   = subTask;
+                      callback()
+                    })
+                  })
                 })
               })
             })
@@ -988,6 +994,30 @@ describe(Support.getTestDialectTeaser("DAOFactory"), function () {
         })
 
         it('returns the associated models when using through as model and alias')
+      })
+
+      it('automatically adds necessary join attributes', function(done) {
+        var self = this
+        this.Task.belongsTo(this.Worker)
+        this.Task.hasMany(this.SubTask)
+        this.init(function() {
+          self.task.setWorker(self.worker).success(function() {
+            self.task.addSubTask(self.subTask).success(function() {
+              self.Task.find({
+                attributes: ['id'],
+                where:   { title: 'homework' },
+                include: [ self.Worker, self.SubTask ]
+              }).complete(function(err, task) {
+                expect(err).to.be.null
+                expect(task).to.exist
+                expect(task.worker).to.exist
+                expect(task.worker.name).to.equal('worker')
+                expect(task.subTasks[0].item).to.equal('social studies')
+                done()
+              })
+            })
+          })
+        })
       })
     })
 
