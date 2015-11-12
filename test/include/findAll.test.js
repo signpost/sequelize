@@ -1374,6 +1374,67 @@ describe(Support.getTestDialectTeaser("Include"), function () {
       })
     })
 
+    it('should be possible to extend the on clause with a hasMany add where and limit', function (done) {
+      var Group = this.sequelize.define('Group', {
+            name: DataTypes.STRING
+          })
+        , GroupMember = this.sequelize.define('GroupMember', {
+            name: DataTypes.STRING
+          })
+
+      GroupMember.belongsTo(Group)
+      Group.hasMany(GroupMember, {as: 'Memberships'})
+
+      this.sequelize.sync({force: true}).done(function () {
+
+        async.auto({
+          groups: function(callback) {
+            Group.bulkCreate([
+              {name: 'Developers'},
+              {name: 'Designers'}
+            ]).done(function () {
+              Group.findAll().done(callback)
+            })
+          },
+          groupMembers: ['groups', function (callback, results) {
+            var groups = results.groups
+
+            GroupMember.bulkCreate([
+              {GroupId: groups[0].id, name: 'Alice'},
+              {GroupId: groups[1].id, name: 'Bob'}
+            ]).done(function() {
+              GroupMember.findAll().done(callback)
+            });
+          }]
+        }, function test(err) {
+          expect(err).not.to.be.ok
+
+          Group.findAll({
+            include: [
+              {
+                model: GroupMember,
+                as: 'Memberships',
+                where: {
+                  name: {
+                    eq: 'Alice'
+                  }
+                }
+              }
+            ],
+            limit: 42,
+            order: 'id ASC'
+          }).done(function(err, groups) {
+            expect(err).not.to.be.ok
+            expect(groups.length).to.equal(1);
+            expect(groups[0].name).to.equal('Developers')
+            expect(groups[0].memberships.length).to.equal(1);
+            expect(groups[0].memberships[0].name).to.equal('Alice')
+            done();
+          });
+        });
+      })
+    })
+
     it('should be possible to use limit and a where with a belongsTo include', function (done) {
       var User = this.sequelize.define('User', {})
         , Group = this.sequelize.define('Group', {
